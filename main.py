@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 # Ініціалізація Pygame
 pygame.init()
@@ -49,16 +50,43 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = pygame.Surface((50, 50))
-        self.image.fill(BLACK)
+        self.image.fill((0, 0, 0))  # Чорний колір для ворогів
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
         self.speed = 3
+        self.change_direction_time = pygame.time.get_ticks() + random.randint(1000, 3000)
+        self.direction = random.choice(['left', 'right', 'up', 'down'])
 
     def update(self):
-        self.rect.y += self.speed
-        if self.rect.top > HEIGHT:
-            self.rect.bottom = 0
+        current_time = pygame.time.get_ticks()
+        if current_time > self.change_direction_time:
+            self.direction = random.choice(['left', 'right', 'up', 'down'])
+            self.change_direction_time = current_time + random.randint(1000, 3000)
+
+        # Рух ворога
+        if self.direction == 'left':
+            self.rect.x -= self.speed
+        elif self.direction == 'right':
+            self.rect.x += self.speed
+        elif self.direction == 'up':
+            self.rect.y -= self.speed
+        elif self.direction == 'down':
+            self.rect.y += self.speed
+
+# Зміна напрямку при досягненні краю екрану
+        if self.rect.left < 0:
+            self.rect.left = 0
+            self.direction = 'right'
+        elif self.rect.right > WIDTH:
+            self.rect.right = WIDTH
+            self.direction = 'left'
+        elif self.rect.top < 0:
+            self.rect.top = 0
+            self.direction = 'down'
+        elif self.rect.bottom > HEIGHT:
+            self.rect.bottom = HEIGHT
+            self.direction = 'up'
 
 # Ігровий цикл
 def main():
