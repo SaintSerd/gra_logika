@@ -13,85 +13,83 @@ pygame.display.set_caption("Battle City Remake")
 # Налаштування кольорів
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 
-# Клас для гравця (військова машина)
+# Завантаження зображень
+player_image = pygame.image.load('tank.jpg')
+enemy_image = pygame.image.load('enemy.jpg')
+bullet_image = pygame.image.load('snary.webp')
+
+# Масштабування зображень до потрібних розмірів
+player_image = pygame.transform.scale(player_image, (50, 50))
+enemy_image = pygame.transform.scale(enemy_image, (50, 50))
+bullet_image = pygame.transform.scale(bullet_image, (5, 10))
+
+# Клас для гравця (військовий танк)
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((50, 50))
-        self.image.fill(RED)
+        self.image = player_image
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT - 50)
         self.speed = 5
+        self.bullets = pygame.sprite.Group()
 
     def update(self, keys_pressed):
-        if keys_pressed[pygame.K_UP]:
-            self.rect.y -= self.speed
-        if keys_pressed[pygame.K_DOWN]:
-            self.rect.y += self.speed
-        if keys_pressed[pygame.K_LEFT]:
+        if keys_pressed[pygame.K_LEFT] and self.rect.left > 0:
             self.rect.x -= self.speed
-        if keys_pressed[pygame.K_RIGHT]:
+        if keys_pressed[pygame.K_RIGHT] and self.rect.right < WIDTH:
             self.rect.x += self.speed
 
-        # Обмеження руху в межах екрану
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
-        if self.rect.top < 0:
-            self.rect.top = 0
-        if self.rect.bottom > HEIGHT:
-            self.rect.bottom = HEIGHT
+    def shoot(self):
+        bullet = Bullet(self.rect.centerx, self.rect.top)
+        self.bullets.add(bullet)
 
-# Клас для ворогів
+# Клас для снарядів
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = bullet_image
+        self.rect = self.image.get_rect(center=(x, y))
+        self.speed = -7
+
+    def update(self):
+        self.rect.y += self.speed
+        if self.rect.bottom < 0:
+            self.kill()
+
+# Клас для ворогів (танки)
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
-        self.image = pygame.Surface((50, 50))
-        self.image.fill((0, 0, 0))  # Чорний колір для ворогів
+        self.image = enemy_image
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.speed = 3
-        self.change_direction_time = pygame.time.get_ticks() + random.randint(1000, 3000)
-        self.direction = random.choice(['left', 'right', 'up', 'down'])
-
+        self.speed = 2
+        self.direction = random.choice(['left', 'right'])
+        
     def update(self):
-        current_time = pygame.time.get_ticks()
-        if current_time > self.change_direction_time:
-            self.direction = random.choice(['left', 'right', 'up', 'down'])
-            self.change_direction_time = current_time + random.randint(1000, 3000)
-
-        # Рух ворога
         if self.direction == 'left':
             self.rect.x -= self.speed
+            if self.rect.left <= 0:
+                self.rect.left = 0
+                self.direction = 'right'
         elif self.direction == 'right':
             self.rect.x += self.speed
-        elif self.direction == 'up':
-            self.rect.y -= self.speed
-        elif self.direction == 'down':
-            self.rect.y += self.speed
-
-# Зміна напрямку при досягненні краю екрану
-        if self.rect.left < 0:
-            self.rect.left = 0
-            self.direction = 'right'
-        elif self.rect.right > WIDTH:
-            self.rect.right = WIDTH
-            self.direction = 'left'
-        elif self.rect.top < 0:
-            self.rect.top = 0
-            self.direction = 'down'
-        elif self.rect.bottom > HEIGHT:
-            self.rect.bottom = HEIGHT
-            self.direction = 'up'
+            if self.rect.right >= WIDTH:
+                self.rect.right = WIDTH
+                self.direction = 'left'
+                
+        # Рух вниз до бази
+        self.rect.y += 1
+        if self.rect.top >= HEIGHT:
+            self.kill()
 
 # Ігровий цикл
 def main():
     clock = pygame.time.Clock()
-
+    
     # Створення гравця
     player = Player()
     player_group = pygame.sprite.Group()
@@ -99,9 +97,10 @@ def main():
 
     # Створення ворогів
     enemy_group = pygame.sprite.Group()
-    for i in range(5):
-        enemy = Enemy(i * 100 + 50, 0)
-        enemy_group.add(enemy)
+    
+    # База гравця
+    base_health = 100
+    font = pygame.font.SysFont(None, 36)
 
     # Основний цикл гри
     running = True
@@ -112,6 +111,8 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                player.shoot()
 
         # Отримання натиснутих клавіш
         keys_pressed = pygame.key.get_pressed()
@@ -119,19 +120,46 @@ def main():
         # Оновлення стану гравця
         player_group.update(keys_pressed)
 
+        # Оновлення снарядів
+        player.bullets.update()
+
         # Оновлення стану ворогів
         enemy_group.update()
 
-        # Логіка гри (зіткнення)
-        if pygame.sprite.spritecollide(player, enemy_group, False):
-            print("Гравець зіткнувся з ворогом!")
+        # Логіка гри: генерація ворогів
+        if random.randint(1, 100) < 2:
+            enemy = Enemy(random.randint(0, WIDTH - 50), 0)
+            enemy_group.add(enemy)
+
+        # Логіка гри: зіткнення снарядів з ворогами
+        for bullet in player.bullets:
+            hit_enemies = pygame.sprite.spritecollide(bullet, enemy_group, True)
+            if hit_enemies:
+                bullet.kill()
+
+        # Логіка гри: вороги досягли бази
+        for enemy in enemy_group:
+            if enemy.rect.bottom >= HEIGHT - 50:  # Ворог досягає бази
+                base_health -= 10
+                enemy.kill()
+            if base_health <= 0:
+                print("Гра закінчена! Базу зруйновано.")
+                running = False
 
         # Очищення екрану
         screen.fill(WHITE)
 
-        # Малювання об'єктів
+        # Малювання бази
+        pygame.draw.rect(screen, GREEN, (WIDTH // 2 - 100, HEIGHT - 50, 200, 50))
+
+        # Малювання гравця та ворогів
         player_group.draw(screen)
         enemy_group.draw(screen)
+        player.bullets.draw(screen)
+
+        # Відображення здоров'я бази
+        health_text = font.render(f'Base Health: {base_health}', True, BLACK)
+        screen.blit(health_text, (10, 10))
 
         # Оновлення екрану
         pygame.display.flip()
