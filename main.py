@@ -15,26 +15,31 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+BLUE = (0, 0, 255)
 
 # Завантаження зображень
-player_image = pygame.image.load('tank.jpg').convert()  # Використовуємо convert для оптимізації
-player_image.set_colorkey(WHITE)  # Видаляємо білий фон
+player_image = pygame.image.load('tank.jpg').convert()
+player_image.set_colorkey(WHITE)
 
 enemy_image = pygame.image.load('enemy.jpg').convert()
-enemy_image.set_colorkey(WHITE)  # Видаляємо білий фон
+enemy_image.set_colorkey(WHITE)
 
 bullet_image = pygame.image.load('snary.webp').convert()
-bullet_image.set_colorkey(WHITE)  # Видаляємо білий фон
+bullet_image.set_colorkey(WHITE)
 
-background_image = pygame.image.load('Foyn.webp').convert()  # Завантаження фону гри (фон без прозорості)
-start_background_image = pygame.image.load('images.jpg').convert()  # Фон заставки
+ammo_pack_image = pygame.image.load('ammo_pack.png').convert()
+ammo_pack_image.set_colorkey(WHITE)  # Видалення білого фону аптечки
+
+background_image = pygame.image.load('fon.webp').convert()
+start_background_image = pygame.image.load('images.jpg').convert()
 
 # Масштабування зображень до потрібних розмірів
 player_image = pygame.transform.scale(player_image, (50, 50))
 enemy_image = pygame.transform.scale(enemy_image, (50, 50))
 bullet_image = pygame.transform.scale(bullet_image, (5, 10))
-background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))  # Масштабування фону гри
-start_background_image = pygame.transform.scale(start_background_image, (WIDTH, HEIGHT))  # Масштабування фону заставки
+background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
+start_background_image = pygame.transform.scale(start_background_image, (WIDTH, HEIGHT))
+ammo_pack_image = pygame.transform.scale(ammo_pack_image, (30, 30))  # Масштабування аптечки
 
 # Клас для гравця (військовий танк)
 class Player(pygame.sprite.Sprite):
@@ -45,16 +50,24 @@ class Player(pygame.sprite.Sprite):
         self.rect.center = (WIDTH // 2, HEIGHT - 50)
         self.speed = 5
         self.bullets = pygame.sprite.Group()
+        self.ammo = 100  # Лічильник патронів
 
     def update(self, keys_pressed):
+        # Рух у будь-якому напрямку, але не виходимо за межі екрану
         if keys_pressed[pygame.K_LEFT] and self.rect.left > 0:
             self.rect.x -= self.speed
         if keys_pressed[pygame.K_RIGHT] and self.rect.right < WIDTH:
             self.rect.x += self.speed
+        if keys_pressed[pygame.K_UP] and self.rect.top > 0:
+            self.rect.y -= self.speed
+        if keys_pressed[pygame.K_DOWN] and self.rect.bottom < HEIGHT:
+            self.rect.y += self.speed
 
     def shoot(self):
-        bullet = Bullet(self.rect.centerx, self.rect.top)
-        self.bullets.add(bullet)
+        if self.ammo > 0:  # Стрільба можлива тільки якщо є патрони
+            bullet = Bullet(self.rect.centerx, self.rect.top)
+            self.bullets.add(bullet)
+            self.ammo -= 1  # Витрачаємо патрони
 
 # Клас для снарядів
 class Bullet(pygame.sprite.Sprite):
@@ -91,13 +104,20 @@ class Enemy(pygame.sprite.Sprite):
             if self.rect.right >= WIDTH:
                 self.rect.right = WIDTH
                 self.direction = 'left'
-                
-        # Рух вниз до бази
         self.rect.y += 1
         if self.rect.top >= HEIGHT:
             self.kill()
 
-# Функція для кнопки "Play"
+# Клас для аптечки (поповнення патронів)
+class AmmoPack(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = ammo_pack_image  # Використання зображення аптечки
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randint(0, WIDTH - 30)
+        self.rect.y = random.randint(0, HEIGHT - 100)
+
+# Функція для малювання кнопки
 def draw_button(surface, color, x, y, width, height, text, font):
     pygame.draw.rect(surface, color, (x, y, width, height))
     text_surface = font.render(text, True, BLACK)
@@ -159,12 +179,11 @@ def show_game_over_screen():
                 if restart_button_rect.collidepoint(event.pos):
                     waiting = False  # Кнопку натиснули, перезапускаємо гру
 
-# Основний ігровий цикл
-def main():
-    clock = pygame.time.Clock()
+        game_loop()  # Перезапуск гри
 
-    # Показати заставку перед початком гри
-    show_start_screen()
+# Основний ігровий цикл
+def game_loop():
+    clock = pygame.time.Clock()
 
     # Створення гравця
     player = Player()
@@ -174,11 +193,13 @@ def main():
     # Створення ворогів
     enemy_group = pygame.sprite.Group()
 
+    # Створення аптечок для патронів
+    ammo_packs = pygame.sprite.Group()
+
     # База гравця
     base_health = 100
     font = pygame.font.SysFont(None, 36)
 
-    # Основний цикл гри
     running = True
     while running:
         clock.tick(60)  # FPS
@@ -202,6 +223,9 @@ def main():
         # Оновлення стану ворогів
         enemy_group.update()
 
+        # Оновлення стану аптечок
+        ammo_packs.update()
+
         # Логіка гри: генерація ворогів
         if random.randint(1, 100) < 2:
             enemy = Enemy(random.randint(0, WIDTH - 50), 0)
@@ -222,20 +246,33 @@ def main():
                 show_game_over_screen()  # Показати екран "Game Over"
                 running = False
 
+        # Поява аптечки, якщо кількість патронів < 20
+        if player.ammo < 20 and len(ammo_packs) == 0:
+            ammo_pack = AmmoPack()
+            ammo_packs.add(ammo_pack)
+
+        # Перевірка зіткнення гравця з аптечкою
+        if pygame.sprite.spritecollideany(player, ammo_packs):
+            player.ammo += 50  # Поповнюємо патрони на 50
+            ammo_packs.empty()  # Видаляємо аптечку після збору
+
         # Очищення екрану та малювання фону
         screen.blit(background_image, (0, 0))  # Малювання фону
 
         # Малювання бази
         pygame.draw.rect(screen, GREEN, (WIDTH // 2 - 100, HEIGHT - 50, 200, 50))
 
-        # Малювання гравця та ворогів
+        # Малювання гравця, ворогів та аптечки
         player_group.draw(screen)
         enemy_group.draw(screen)
         player.bullets.draw(screen)
+        ammo_packs.draw(screen)
 
-        # Відображення здоров'я бази
-        health_text = font.render(f'Base Health: {base_health}', True, BLACK)
+        # Відображення здоров'я бази та кількості патронів
+        health_text = font.render(f'Base Health: {base_health}', True, WHITE)
         screen.blit(health_text, (10, 10))
+        ammo_text = font.render(f'Ammo: {player.ammo}', True, WHITE)
+        screen.blit(ammo_text, (10, 50))
 
         # Оновлення екрану
         pygame.display.flip()
@@ -244,5 +281,7 @@ def main():
     sys.exit()
 
 if __name__ == "__main__":
-    main()
+    show_start_screen()  # Показати заставку на початку
+    game_loop()  # Основний ігровий цикл
+
 
