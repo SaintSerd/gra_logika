@@ -51,6 +51,7 @@ class Player(pygame.sprite.Sprite):
         self.speed = 5
         self.bullets = pygame.sprite.Group()
         self.ammo = 100  # Лічильник патронів
+        self.health = 100  # Здоров'я гравця
 
     def update(self, keys_pressed):
         # Рух у будь-якому напрямку, але не виходимо за межі екрану
@@ -108,7 +109,7 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.top >= HEIGHT:
             self.kill()
 
-# Клас для аптечки (поповнення патронів)
+# Клас для аптечки (поповнення патронів та здоров'я)
 class AmmoPack(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -153,13 +154,13 @@ def show_start_screen():
                     waiting = False  # Кнопку натиснули, починаємо гру
 
 # Екран "Game Over"
-def show_game_over_screen():
+def show_game_over_screen(message):
     screen.fill(BLACK)  # Фон чорного кольору
     font_large = pygame.font.SysFont(None, 74)
     font_medium = pygame.font.SysFont(None, 50)
 
-    # Малюємо текст "Game Over"
-    text_surface = font_large.render("Game Over", True, RED)
+    # Малюємо текст (виграш чи поразка)
+    text_surface = font_large.render(message, True, RED)
     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
     screen.blit(text_surface, text_rect)
 
@@ -179,7 +180,7 @@ def show_game_over_screen():
                 if restart_button_rect.collidepoint(event.pos):
                     waiting = False  # Кнопку натиснули, перезапускаємо гру
 
-        game_loop()  # Перезапуск гри
+    game_loop()  # Перезапуск гри
 
 # Основний ігровий цикл
 def game_loop():
@@ -193,8 +194,16 @@ def game_loop():
     # Створення ворогів
     enemy_group = pygame.sprite.Group()
 
-    # Створення аптечок для патронів
+    # Створення аптечок для патронів та здоров'я
     ammo_packs = pygame.sprite.Group()
+
+    # Лічильник для кількості появ аптечки (максимум 3 рази)
+    ammo_pack_count = 0
+    max_ammo_packs = 3
+
+    # Лічильник знищених ворогів
+    enemy_kills = 0
+    max_enemy_kills = 50  # Виграш після знищення 50 ворогів
 
     # База гравця
     base_health = 100
@@ -236,6 +245,12 @@ def game_loop():
             hit_enemies = pygame.sprite.spritecollide(bullet, enemy_group, True)
             if hit_enemies:
                 bullet.kill()
+                enemy_kills += 1  # Додаємо кількість знищених ворогів
+
+        # Перевірка на перемогу (якщо знищено 50 ворогів)
+        if enemy_kills >= max_enemy_kills:
+            show_game_over_screen("You Win!")  # Показати екран "You Win"
+            running = False
 
         # Логіка гри: вороги досягли бази
         for enemy in enemy_group:
@@ -243,17 +258,28 @@ def game_loop():
                 base_health -= 10
                 enemy.kill()
             if base_health <= 0:
-                show_game_over_screen()  # Показати екран "Game Over"
+                show_game_over_screen("Game Over")  # Показати екран "Game Over"
                 running = False
 
-        # Поява аптечки, якщо кількість патронів < 20
-        if player.ammo < 20 and len(ammo_packs) == 0:
+        # Перевірка зіткнення гравця з ворогом (гравець втрачає здоров'я)
+        if pygame.sprite.spritecollideany(player, enemy_group):
+            player.health -= 10  # Зменшення здоров'я на 10 при зіткненні
+            if player.health <= 0:
+                show_game_over_screen("Game Over")  # Завершення гри при 0 здоров'я
+                running = False
+
+        # Поява аптечки, якщо кількість патронів < 20 або здоров'я < 50 і ще не використано всі 3 аптечки
+        if (player.ammo < 20 or player.health < 50) and len(ammo_packs) == 0 and ammo_pack_count < max_ammo_packs:
             ammo_pack = AmmoPack()
             ammo_packs.add(ammo_pack)
+            ammo_pack_count += 1
 
-        # Перевірка зіткнення гравця з аптечкою
+        # Перевірка зіткнення гравця з аптечкою (поповнення патронів та здоров'я)
         if pygame.sprite.spritecollideany(player, ammo_packs):
             player.ammo += 50  # Поповнюємо патрони на 50
+            player.health += 30  # Поповнюємо здоров'я на 30
+            if player.health > 100:
+                player.health = 100  # Здоров'я не може бути більше 100
             ammo_packs.empty()  # Видаляємо аптечку після збору
 
         # Очищення екрану та малювання фону
@@ -268,11 +294,15 @@ def game_loop():
         player.bullets.draw(screen)
         ammo_packs.draw(screen)
 
-        # Відображення здоров'я бази та кількості патронів
+        # Відображення здоров'я бази, кількості патронів, здоров'я гравця та знищених ворогів
         health_text = font.render(f'Base Health: {base_health}', True, WHITE)
         screen.blit(health_text, (10, 10))
         ammo_text = font.render(f'Ammo: {player.ammo}', True, WHITE)
         screen.blit(ammo_text, (10, 50))
+        player_health_text = font.render(f'Player Health: {player.health}', True, WHITE)
+        screen.blit(player_health_text, (10, 90))
+        enemy_kills_text = font.render(f'Enemies Killed: {enemy_kills}', True, WHITE)
+        screen.blit(enemy_kills_text, (10, 130))
 
         # Оновлення екрану
         pygame.display.flip()
@@ -283,5 +313,3 @@ def game_loop():
 if __name__ == "__main__":
     show_start_screen()  # Показати заставку на початку
     game_loop()  # Основний ігровий цикл
-
-
