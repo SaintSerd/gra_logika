@@ -22,7 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.image.fill(RED)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT - 50)
-        self.speed = 5
+        self.speed = 5      
 
     def update(self, keys_pressed):
         if keys_pressed[pygame.K_UP]:
