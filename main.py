@@ -21,13 +21,13 @@ FPS = 60
 clock = pygame.time.Clock()
 
 # Завантаження зображень
-background_image = pygame.image.load('background.png')
+background_image = pygame.image.load('assets/background.png')
 background_image = pygame.transform.scale(background_image, (WINDOW_WIDTH, WINDOW_HEIGHT))
 
-player_image = pygame.image.load('tank.png')
+player_image = pygame.image.load('assets/tank.png')
 player_image = pygame.transform.scale(player_image, (50, 50))
 
-enemy_image = pygame.image.load('enemy_tank.png')
+enemy_image = pygame.image.load('assets/enemy_tank.png')
 enemy_image = pygame.transform.scale(enemy_image, (60, 60))
 
 
@@ -35,16 +35,16 @@ bullet_image = pygame.Surface((8, 8))
 bullet_image.fill((255, 0, 0))  # Червона куля
 
 # Завантажуємо зображення для підсилювачів
-health_image = pygame.image.load('health_boost.png')
+health_image = pygame.image.load('assets/health_boost.png')
 health_image = pygame.transform.scale(health_image, (40, 40))
 
-double_bullet_image = pygame.image.load('double_bullet_boost.png')
-double_bullet_image = pygame.transform.scale(double_bullet_image, (60, 40))
+double_bullet_image = pygame.image.load('assets/double_bullet_boost.png')
+double_bullet_image = pygame.transform.scale(double_bullet_image, (40, 40))
 
 # Звуки
-shoot_sound = pygame.mixer.Sound('shoot.wav')
-explosion_sound = pygame.mixer.Sound('explosion.wav')
-pygame.mixer.music.load('background_music.mp3')
+shoot_sound = pygame.mixer.Sound('sounds/shoot.mp3')
+explosion_sound = pygame.mixer.Sound('sounds/explosion.mp3')
+pygame.mixer.music.load('sounds/background_music.mp3')
 
 # Гравець
 class Player(pygame.sprite.Sprite):
